@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0">
+    <title>Paeper Bom</title>
+    <style>
+        body {
+            margin: 0;
+            background-color: #1a1a1a;
+            color: white;
+            font-family: sans-serif;
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            overflow: hidden;
+        }
+
+        #game-ui {
+            width: 90%;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .opdracht-box {
+            min-height: 200px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2.2rem;
+            font-weight: bold;
+            border: 4px solid #e67e22;
+            border-radius: 20px;
+            padding: 20px;
+            background: rgba(255,255,255,0.05);
+        }
+
+        .bom-icon {
+            font-size: 5rem;
+            margin: 10px;
+        }
+
+        .main-btn {
+            padding: 25px;
+            font-size: 1.8rem;
+            background: #e67e22;
+            color: white;
+            border: none;
+            border-radius: 15px;
+            font-weight: bold;
+            cursor: pointer;
+            box-shadow: 0 5px #a05400;
+        }
+
+        .main-btn:active {
+            transform: translateY(3px);
+            box-shadow: 0 2px #a05400;
+        }
+
+        .boom-state { background-color: #ff0000 !important; }
+    </style>
+</head>
+<body>
+
+<div id="game-ui">
+    <div id="top-icon" class="bom-icon">💣</div>
+    <div id="display" class="opdracht-box">Klaar voor de Paeper Bom?</div>
+    <button id="start-btn" class="main-btn">START DE BOM</button>
+</div>
+
+<script>
+    const opdrachten = [
+        "Noem een ex-partner van een Paeper",
+        "Noem de huidige partner van een Paeper",
+        "Noem een familielid van de huidige partner van een Paeper",
+        "Noem een neefje",
+        "Noem een nichtje",
+        "Noem een Indonesisch gerecht",
+        "Noem iets wat je kan kopen bij snackbar Mosje",
+        "Noem iets wat je kan tegenkomen in het Rosorum-park",
+        "Noem iemand die vroeger voetbalde op zondagmiddag bij 't Liemers College",
+        "Noem een docent van het Liemers College (nu of vroeger)",
+        "Noem een straat waar een van de Paepers woont",
+        "Noem een beroep van een van de Paepers",
+        "Noem een hobby van een van de Paepers"
+    ];
+
+    let audioCtx;
+    let gameTimeout;
+    let tickInterval;
+
+    const btn = document.getElementById('start-btn');
+    const display = document.getElementById('display');
+    const topIcon = document.getElementById('top-icon');
+
+    btn.addEventListener('click', function() {
+        // 1. Audio Context forceren (Cruciaal voor Safari/Chrome)
+        if (!audioCtx) {
+            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        }
+        if (audioCtx.state === 'suspended') {
+            audioCtx.resume();
+        }
+
+        // 2. Reset UI
+        document.body.classList.remove('boom-state');
+        topIcon.innerText = "💣";
+        btn.style.visibility = "hidden"; // Verberg knop tijdens spel
+        
+        // 3. Kies opdracht
+        const r = Math.floor(Math.random() * opdrachten.length);
+        display.innerText = opdrachten[r];
+
+        // 4. Start de Bom logica
+        const speeltijd = Math.floor(Math.random() * 30000) + 15000; // 15-45 sec
+        
+        startTicks(800); // Begin langzaam tikken
+
+        gameTimeout = setTimeout(explodeer, speeltijd);
+    });
+
+    function startTicks(speed) {
+        if (document.body.classList.contains('boom-state')) return;
+
+        playTickSound();
+        
+        // Versnel het getik naarmate het vordert
+        let nextSpeed = speed * 0.95;
+        if (nextSpeed < 120) nextSpeed = 120;
+
+        tickInterval = setTimeout(() => startTicks(nextSpeed), nextSpeed);
+    }
+
+    function playTickSound() {
+        if (!audioCtx) return;
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        
+        osc.frequency.value = 440;
+        gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + 0.05);
+        
+        osc.start();
+        osc.stop(audioCtx.currentTime + 0.05);
+    }
+
+    function explodeer() {
+        clearTimeout(tickInterval);
+        document.body.classList.add('boom-state');
+        topIcon.innerText = "💥";
+        display.innerText = "BOEM! JE BENT AF!";
+        
+        // Laat knop weer zien
+        btn.innerText = "VOLGENDE RONDE";
+        btn.style.visibility = "visible";
+
+        // Trilfunctie
+        if (navigator.vibrate) navigator.vibrate([500, 200, 500]);
+        
+        // Explosie geluid
+        playExplosionSound();
+    }
+
+    function playExplosionSound() {
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(100, audioCtx.currentTime);
+        osc.frequency.linearRampToValueAtTime(20, audioCtx.currentTime + 0.4);
+        gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
+        gain.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 0.4);
+        osc.start();
+        osc.stop(audioCtx.currentTime + 0.4);
+    }
+</script>
+
+</body>
+</html>
