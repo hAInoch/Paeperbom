@@ -18,6 +18,77 @@
             overflow: hidden;
         }
 
+        #info-trigger {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            font-size: 2rem;
+            cursor: pointer;
+            z-index: 100;
+            background: rgba(255,255,255,0.1);
+            padding: 5px 12px;
+            border-radius: 50%;
+        }
+
+        #info-overlay {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0, 0, 0, 0.95);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            visibility: hidden;
+            opacity: 0;
+            transition: 0.3s;
+            overflow-y: auto;
+        }
+
+        #info-overlay.show { visibility: visible; opacity: 1; }
+
+        .modal-content {
+            width: 85%;
+            max-width: 400px;
+            background: #2c3e50;
+            padding: 25px;
+            border-radius: 20px;
+            border: 3px solid #e67e22;
+            text-align: left;
+            margin: 20px auto;
+        }
+
+        .modal-content h2 { margin-top: 0; color: #e67e22; font-size: 1.5rem; }
+        .modal-content p { line-height: 1.4; font-size: 1rem; margin: 10px 0; }
+
+        /* Custom vragen sectie */
+        .custom-input-group {
+            margin-top: 20px;
+            padding-top: 15px;
+            border-top: 1px solid #555;
+        }
+        
+        #custom-q-input {
+            width: 100%;
+            padding: 12px;
+            box-sizing: border-box;
+            border-radius: 8px;
+            border: none;
+            margin-bottom: 10px;
+            font-size: 1rem;
+        }
+
+        .small-btn {
+            padding: 10px;
+            font-size: 0.9rem;
+            background: #7f8c8d;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            width: 100%;
+            margin-bottom: 5px;
+        }
+
         #game-ui {
             width: 90%;
             display: flex;
@@ -26,7 +97,7 @@
         }
 
         .opdracht-box {
-            min-height: 200px;
+            min-height: 250px;
             display: flex;
             align-items: center;
             justify-content: center;
@@ -36,12 +107,10 @@
             border-radius: 20px;
             padding: 20px;
             background: rgba(255,255,255,0.05);
+            line-height: 1.2;
         }
 
-        .bom-icon {
-            font-size: 5rem;
-            margin: 10px;
-        }
+        .bom-icon { font-size: 5rem; margin: 10px; }
 
         .main-btn {
             padding: 25px;
@@ -55,82 +124,155 @@
             box-shadow: 0 5px #a05400;
         }
 
-        .main-btn:active {
-            transform: translateY(3px);
-            box-shadow: 0 2px #a05400;
-        }
-
+        .main-btn:active { transform: translateY(3px); box-shadow: 0 2px #a05400; }
+        .approve-btn { background: #27ae60; box-shadow: 0 5px #1e8449; }
         .boom-state { background-color: #ff0000 !important; }
+        .pass-text { color: #f1c40f; font-size: 3rem; }
+        .hidden { display: none !important; }
     </style>
 </head>
 <body>
 
+<div id="info-trigger">ℹ️</div>
+
+<div id="info-overlay">
+    <div class="modal-content">
+        <h2>Uitleg</h2>
+        <p>Start de bom en beantwoord de vraag. Is de rest akkoord? Klik op <strong>'Goedgekeurd?'</strong> en geef door!</p>
+        
+        <div class="custom-input-group">
+            <h2>Eigen vragen toevoegen</h2>
+            <input type="text" id="custom-q-input" placeholder="Typ hier een nieuwe vraag...">
+            <button id="add-q-btn" class="small-btn" style="background: #27ae60;">VOEG TOE</button>
+            <button id="clear-q-btn" class="small-btn">Wis alle eigen vragen</button>
+        </div>
+
+        <button id="info-close" class="main-btn" style="width:100%; margin-top:15px; font-size:1.2rem; padding:15px;">SPELEN!</button>
+    </div>
+</div>
+
 <div id="game-ui">
     <div id="top-icon" class="bom-icon">💣</div>
     <div id="display" class="opdracht-box">Klaar voor de Paeper-bom?</div>
+    
     <button id="start-btn" class="main-btn">START DE BOM</button>
+    <button id="approve-btn" class="main-btn approve-btn hidden">GOEDGEKEURD? ✅</button>
 </div>
 
 <script>
-    const opdrachten = [
-        "Noem een ex-partner van een Paeper",
-        "Noem de huidige partner van een Paeper",
-        "Noem een familielid van de huidige partner van een Paeper",
-        "Noem een neefje",
-        "Noem een nichtje",
-        "Noem een Indonesisch gerecht",
-        "Noem iets wat je kan kopen bij snackbar Mosje",
-        "Noem iets wat je kan tegenkomen in het Rosorum-park",
-        "Noem iemand die vroeger voetbalde op zondagmiddag bij 't Liemers College",
-        "Noem een docent van het Liemers College (nu of vroeger)",
-        "Noem een straat waar een van de Paepers woont",
-        "Noem een beroep van een van de Paepers",
-        "Noem een hobby van een van de Paepers"
+    const standaardOpdrachten = [
+        "Noem 3 ex-partners van een Paeper",
+        "Noem 4 huidige partners van een Paeper",
+        "Noem 3 familieleden van de huidige partner van een Paeper",
+        "Noem 4 neefjes",
+        "Noem 5 nichtjes",
+        "Noem 3 Indonesische gerechten",
+        "Noem 3 dingen die je kan kopen bij snackbar Mosje",
+        "Noem 5 dingen die je kan tegenkomen in het Rosorum-park",
+        "Noem 2 mensen die vroeger voetbalden op zondagmiddag bij 't Liemers College",
+        "Noem 2 docenten van het Liemers College (nu of vroeger)",
+        "Noem 2 straten waar Paepers wonen",
+        "Noem 2 beroepen van Paepers of aanhang",
+        "Noem 2 hobby's van Paepers of aanhang",
+        "Noem 3 tekenfilmfiguren uit de jaren '90",
+        "Noem 2 merken chips",
+        "Noem 3 spelers van Ajax uit 1995",
+        "Noem 3 personages uit GTST uit de jaren '90",
+        "Noem 2 personages uit Flodder",
+        "Noem 2 personages uit Baantjer",
+        "Noem 2 nummers van Clouseau",
+        "Noem 2 nummers van Simon & Garfunkel",
+        "Noem 2 nummers van Herman van Veen",
+        "Noem 2 nummers van Boudewijn de Groot",
+        "Noem 1 nummer van Tante Lien",
+        "Noem 2 nummers van Doe Maar"
     ];
 
+    let customOpdrachten = JSON.parse(localStorage.getItem('paeperCustomVragen')) || [];
     let audioCtx;
     let gameTimeout;
     let tickInterval;
+    let isExploded = false;
 
-    const btn = document.getElementById('start-btn');
+    const startBtn = document.getElementById('start-btn');
+    const approveBtn = document.getElementById('approve-btn');
     const display = document.getElementById('display');
     const topIcon = document.getElementById('top-icon');
+    const infoTrigger = document.getElementById('info-trigger');
+    const infoOverlay = document.getElementById('info-overlay');
+    const infoClose = document.getElementById('info-close');
+    const addQBtn = document.getElementById('add-q-btn');
+    const clearQBtn = document.getElementById('clear-q-btn');
+    const qInput = document.getElementById('custom-q-input');
 
-    btn.addEventListener('click', function() {
-        // 1. Audio Context forceren (Cruciaal voor Safari/Chrome)
-        if (!audioCtx) {
-            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    // Vragen beheer
+    addQBtn.addEventListener('click', () => {
+        if(qInput.value.trim() !== "") {
+            customOpdrachten.push(qInput.value.trim());
+            localStorage.setItem('paeperCustomVragen', JSON.stringify(customOpdrachten));
+            qInput.value = "";
+            alert("Vraag toegevoegd!");
         }
-        if (audioCtx.state === 'suspended') {
-            audioCtx.resume();
+    });
+
+    clearQBtn.addEventListener('click', () => {
+        if(confirm("Weet je zeker dat je alle eigen vragen wilt wissen?")) {
+            customOpdrachten = [];
+            localStorage.removeItem('paeperCustomVragen');
         }
+    });
 
-        // 2. Reset UI
-        document.body.classList.remove('boom-state');
-        topIcon.innerText = "💣";
-        btn.style.visibility = "hidden"; // Verberg knop tijdens spel
-        
-        // 3. Kies opdracht
-        const r = Math.floor(Math.random() * opdrachten.length);
-        display.innerText = opdrachten[r];
+    // UI Logica
+    infoTrigger.addEventListener('click', () => infoOverlay.classList.add('show'));
+    infoClose.addEventListener('click', () => infoOverlay.classList.remove('show'));
 
-        // 4. Start de Bom logica
-        const speeltijd = Math.floor(Math.random() * 30000) + 15000; // 15-45 sec
-        
-        startTicks(800); // Begin langzaam tikken
-
+    startBtn.addEventListener('click', function() {
+        initAudio();
+        resetGame();
+        startBtn.classList.add('hidden');
+        approveBtn.classList.remove('hidden');
+        nextOpdracht();
+        const speeltijd = Math.floor(Math.random() * 35000) + 20000;
+        startTicks(800);
         gameTimeout = setTimeout(explodeer, speeltijd);
     });
 
+    approveBtn.addEventListener('click', function() {
+        if(isExploded) return;
+        display.innerHTML = "<span class='pass-text'>GEEF DE MOBIEL DOOR!</span>";
+        approveBtn.classList.add('hidden');
+        setTimeout(() => {
+            if(!isExploded) {
+                nextOpdracht();
+                approveBtn.classList.remove('hidden');
+            }
+        }, 2000);
+    });
+
+    function nextOpdracht() {
+        const alleVragen = [...standaardOpdrachten, ...customOpdrachten];
+        const r = Math.floor(Math.random() * alleVragen.length);
+        display.innerText = alleVragen[r];
+    }
+
+    function resetGame() {
+        isExploded = false;
+        document.body.classList.remove('boom-state');
+        topIcon.innerText = "💣";
+        clearTimeout(tickInterval);
+        clearTimeout(gameTimeout);
+    }
+
+    function initAudio() {
+        if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        if (audioCtx.state === 'suspended') audioCtx.resume();
+    }
+
     function startTicks(speed) {
-        if (document.body.classList.contains('boom-state')) return;
-
+        if (isExploded) return;
         playTickSound();
-        
-        // Versnel het getik naarmate het vordert
-        let nextSpeed = speed * 0.95;
-        if (nextSpeed < 120) nextSpeed = 120;
-
+        let nextSpeed = speed * 0.96;
+        if (nextSpeed < 100) nextSpeed = 100;
         tickInterval = setTimeout(() => startTicks(nextSpeed), nextSpeed);
     }
 
@@ -140,29 +282,23 @@
         const gain = audioCtx.createGain();
         osc.connect(gain);
         gain.connect(audioCtx.destination);
-        
-        osc.frequency.value = 440;
+        osc.frequency.value = 600;
         gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
-        gain.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + 0.05);
-        
+        gain.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + 0.04);
         osc.start();
-        osc.stop(audioCtx.currentTime + 0.05);
+        osc.stop(audioCtx.currentTime + 0.04);
     }
 
     function explodeer() {
+        isExploded = true;
         clearTimeout(tickInterval);
         document.body.classList.add('boom-state');
         topIcon.innerText = "💥";
         display.innerText = "BOEM! JE BENT AF!";
-        
-        // Laat knop weer zien
-        btn.innerText = "VOLGENDE RONDE";
-        btn.style.visibility = "visible";
-
-        // Trilfunctie
-        if (navigator.vibrate) navigator.vibrate([500, 200, 500]);
-        
-        // Explosie geluid
+        approveBtn.classList.add('hidden');
+        startBtn.innerText = "VOLGENDE RONDE";
+        startBtn.classList.remove('hidden');
+        if (navigator.vibrate) navigator.vibrate([500, 110, 500, 110, 800]);
         playExplosionSound();
     }
 
@@ -172,15 +308,14 @@
         osc.connect(gain);
         gain.connect(audioCtx.destination);
         osc.type = 'sawtooth';
-        osc.frequency.setValueAtTime(100, audioCtx.currentTime);
-        osc.frequency.linearRampToValueAtTime(20, audioCtx.currentTime + 0.4);
-        gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
-        gain.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 0.4);
+        osc.frequency.setValueAtTime(120, audioCtx.currentTime);
+        osc.frequency.linearRampToValueAtTime(10, audioCtx.currentTime + 0.8);
+        gain.gain.setValueAtTime(0.4, audioCtx.currentTime);
+        gain.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 0.8);
         osc.start();
-        osc.stop(audioCtx.currentTime + 0.4);
+        osc.stop(audioCtx.currentTime + 0.8);
     }
 </script>
 
 </body>
-
 </html>
